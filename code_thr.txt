@@ -1,0 +1,5 @@
+. A C G T
+A x s s r
+C s s r l
+T s r r l
+G r l l l

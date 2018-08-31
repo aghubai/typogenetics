@@ -1,0 +1,17 @@
+A C G T
+AA non x
+AC cut s
+AG del s
+AT swi r
+CA mvr s
+CC mvl s
+CG cop r
+CT off l
+GA ina s
+GC inc r
+GG ing r
+GT int l
+TA rpy r
+TC rpu l
+TG lpy l
+TT lpu l

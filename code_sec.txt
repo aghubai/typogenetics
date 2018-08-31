@@ -1,0 +1,5 @@
+.  A   C   G   T
+A non cut del swi
+C mvr mvl cop off
+G ina inc ing int
+T rpy rpu lpy lpu
