@@ -58,4 +58,4 @@ strand <- "CGTCTCTCTATAGAGAGACG"
 enzymes <- translate(strand, nts, operations)
 (enzyme <- separenz(enzymes)[[1]])
 (stranew <- operate(strand, enzyme, 1))
-identical(stranew[1], stranew[2])
+strand == stranew
