@@ -49,6 +49,13 @@ enzymes <- translate(strand, nts, operations)
 
 for (i in separenz(enzymes)) {
   numst <- numstart(strand, i)
-  for (j in 1:numst)
+  for (j in seq_len(numst))
     print(operate(strand, i, j))
 }
+
+# 7th case
+strand <- "CGTCTCTCTATAGAGAGACG"
+enzymes <- translate(strand, nts, operations)
+(enzyme <- separenz(enzymes)[[1]])
+(stranew <- operate(strand, enzyme, 1))
+identical(stranew[1], stranew[2])

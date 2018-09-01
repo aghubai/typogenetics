@@ -31,7 +31,8 @@ translate <- function (strand, nts, operations) {
   # find binding preference
   kns <- c(factor(operations[3, codind], c("l", "s", "r"))) - 2
   enzkns <- sapply(enzpcs, function (i) sum(kns[i[-c(1, length(i))]]) %% 4 +1)
-  enzpref <- c("A", "G", "T", "C")[enzkns]
+  if (enzn > 0)
+    enzpref <- c("A", "G", "T", "C")[enzkns] else character(0)
   
   return(list(enzn, enzops, enzpref))
 }
@@ -50,23 +51,24 @@ operate <- function (strand, enzyme, determ=1, show=FALSE) {
   # manipulate (tracking substrate, position and copy mode)
   coms <- paste0("f", enzyme[[1]])
   prod <- list(rbind(" ", stra), pos, 0)
-  if (show) printst(prod)
+  if (show) printst(prod, "start")
   i <- 1
   while (i <= length(coms) && prod[[2]] > 0) {
     prod <- get(coms[i])(prod)
-    i <- i +1
-    if (show) printst(prod)}
+    if (show) printst(prod, enzyme[[1]][i])
+    i <- i +1}
   
   # separate strands
   separ <- c(rev(prod[[1]][1, ]), " ", prod[[1]][2, ])
-  stranew <- setdiff(unlist(strsplit(paste(separ, collapse=""), " ")), "")
+  stranew <- unlist(strsplit(paste(separ, collapse=""), " "))
+  stranew <- stranew[which(stranew != "")]
   
   return(stranew)
 }
 
 fcut <- function (state) {
   subs <- state[[1]]; pos <- state[[2]]
-  state[[1]] <- matrix(c(subs[1:(pos*2)], rep(" ", 2), subs[-(1:(pos*2))]), 2)
+  state[[1]] <- matrix(c(subs[seq_len(pos*2)], rep(" ", 2), subs[-seq_len(pos*2)]), 2)
   return(state)}
 
 fdel <- function (state) {
@@ -82,8 +84,12 @@ fdel <- function (state) {
   state[[1]] <- subs; state[[2]] <- pos; return(state)}
 
 fswi <- function (state) {
-  state[[1]] <- matrix(rev(state[[1]]), 2)
-  state[[2]] <- ncol(state[[1]]) - state[[2]] +1
+  subs <- state[[1]]; pos <- state[[2]]
+  if (subs[1, pos] != " ") {
+    state[[1]] <- matrix(rev(subs), 2)
+    state[[2]] <- ncol(subs) - pos +1
+  } else
+    state[[2]] <- 0
   return(state)}
 
 fmvr <- function (state) {
@@ -121,7 +127,7 @@ fina <- function (state) {
   if (state[[3]] == 1)
     add <- c("T", "A") else
       add <- c(" ", "A")
-  state[[1]] <- matrix(c(subs[1:(pos*2)], add, subs[-(1:(pos*2))]), 2)
+  state[[1]] <- matrix(c(subs[seq_len(pos*2)], add, subs[-(seq_len(pos*2))]), 2)
   state[[2]] <- pos +1; return(state)}
 
 finc <- function (state) {
@@ -129,7 +135,7 @@ finc <- function (state) {
   if (state[[3]] == 1)
     add <- c("G", "C") else
       add <- c(" ", "C")
-  state[[1]] <- matrix(c(subs[1:(pos*2)], add, subs[-(1:(pos*2))]), 2)
+  state[[1]] <- matrix(c(subs[seq_len(pos*2)], add, subs[-(seq_len(pos*2))]), 2)
   state[[2]] <- pos +1; return(state)}
 
 fing <- function (state) {
@@ -137,7 +143,7 @@ fing <- function (state) {
   if (state[[3]] == 1)
     add <- c("C", "G") else
       add <- c(" ", "G")
-  state[[1]] <- matrix(c(subs[1:(pos*2)], add, subs[-(1:(pos*2))]), 2)
+  state[[1]] <- matrix(c(subs[seq_len(pos*2)], add, subs[-(seq_len(pos*2))]), 2)
   state[[2]] <- pos +1; return(state)}
 
 fint <- function (state) {
@@ -145,7 +151,7 @@ fint <- function (state) {
   if (state[[3]] == 1)
     add <- c("A", "T") else
       add <- c(" ", "T")
-  state[[1]] <- matrix(c(subs[1:(pos*2)], add, subs[-(1:(pos*2))]), 2)
+  state[[1]] <- matrix(c(subs[seq_len(pos*2)], add, subs[-(seq_len(pos*2))]), 2)
   state[[2]] <- pos +1; return(state)}
 
 frpy <- function (state) {
@@ -216,10 +222,14 @@ compl <- function (nt) {
   return(cnt)
 }
 
+complst <- function (strand) {
+  paste0(sapply(unlist(strsplit(strand, "")), compl), collapse="")
+}
+
 separenz <- function (enzymes) {
   n <- enzymes[[1]]
   enzlist <- vector("list", n)
-  for (i in 1:n)
+  for (i in seq_len(n))
     enzlist[[i]] <- list(enzymes[[2]][[i]], enzymes[[3]][i])
   return(enzlist)
 }
@@ -229,7 +239,9 @@ numstart <- function (strand, enzyme) {
   return(sum(unlist(strsplit(strand, "")) == enzyme[[2]]))
 }
 
-printst <- function (state) {
+printst <- function (state, comm=NULL) {
+  if (!is.null(comm))
+    cat(paste0(c(comm, ":\n"), collapse=""))
   cat(paste0(state[[1]][1, ], collapse=""), "\n")
   cat(paste0(state[[1]][2, ], collapse=""), "\n")
   symb <- ifelse(state[[3]] == 1, "|", "-")
