@@ -34,15 +34,14 @@ translate <- function (strand, nts, operations) {
   if (enzn > 0)
     enzpref <- c("A", "G", "T", "C")[enzkns] else character(0)
   
-  return(list(enzn, enzops, enzpref))
-}
+  return(list(enzn, enzops, enzpref))}
 
 # shape strand using enzyme (determ: bind leftmost target)
 operate <- function (strand, enzyme, determ=1, show=FALSE) {
   
   # bind enzyme to strand
   pref <- enzyme[[2]]
-  stra <- unlist(strsplit(strand, ""))
+  stra <- c(" ", unlist(strsplit(strand, "")), " ")
   whpref <- which(stra == pref)
   if (determ > 0)
     pos <- whpref[determ] else
@@ -63,182 +62,180 @@ operate <- function (strand, enzyme, determ=1, show=FALSE) {
   stranew <- unlist(strsplit(paste(separ, collapse=""), " "))
   stranew <- stranew[which(stranew != "")]
   
-  return(stranew)
-}
+  return(stranew)}
 
 fcut <- function (state) {
+  # cuts to the right of position, creating separate molecules
   subs <- state[[1]]; pos <- state[[2]]
   state[[1]] <- matrix(c(subs[seq_len(pos*2)], rep(" ", 2), subs[-seq_len(pos*2)]), 2)
   return(state)}
 
 fdel <- function (state) {
+  # deletes only on active strand, moves to the right
   subs <- state[[1]]; pos <- state[[2]] +1
   subs[2, pos -1] <- " "
-  # ends: runs off molecule (right), runs into nick (copy mode off), runs into break
-  if (pos > ncol(subs) || (subs[2, pos] == " " &&
-                           (state[[3]] == 0 || subs[1, pos] == " "))) pos <- 0 else
-  # copies: *any* strand is void (copy mode on)
-    if (state[[3]] == 1 && any(subs[, pos] == c(" ", " "))) {
-      wh <- which(subs[, pos] == " ")
-      subs[wh, pos] <- compl(subs[3 - wh, pos])}
-  state[[1]] <- subs; state[[2]] <- pos; return(state)}
+  # ends: if runs off molecule
+  if (subs[2, pos] == " ") pos <- 0 else
+  # copies: if there is no complementary base (copy mode on)
+    if (subs[1, pos] == " " && state[[3]] == 1)
+      subs[1, pos] <- compl(subs[2, pos])
+  state[[1]] <- subs; state[[2]] <- pos
+  return(state)}
 
 fswi <- function (state) {
+  # "rotates" strands and repositions
   subs <- state[[1]]; pos <- state[[2]]
   if (subs[1, pos] != " ") {
     state[[1]] <- matrix(rev(subs), 2)
     state[[2]] <- ncol(subs) - pos +1
   } else
+    # detaches
     state[[2]] <- 0
   return(state)}
 
 fmvr <- function (state) {
   subs <- state[[1]]; pos <- state[[2]] +1
-  # ends: runs off molecule (right), runs into nick (copy mode off), runs into break
-  if (pos > ncol(subs) || (subs[2, pos] == " " &&
-                           (state[[3]] == 0 || subs[1, pos] == " "))) pos <- 0 else
-  # copies: *any* strand is void (copy mode on)
-    if (state[[3]] == 1 && any(subs[, pos] == c(" ", " "))) {
-      wh <- which(subs[, pos] == " ")
-      subs[wh, pos] <- compl(subs[3 - wh, pos])}
-  state[[1]] <- subs; state[[2]] <- pos; return(state)}
+  # ends: if runs off molecule
+  if (subs[2, pos] == " ") pos <- 0 else
+    # copies: if there is no complementary base (copy mode on)
+    if (subs[1, pos] == " " && state[[3]] == 1)
+      subs[1, pos] <- compl(subs[2, pos])
+  state[[1]] <- subs; state[[2]] <- pos
+  return(state)}
 
 fmvl <- function (state) {
   subs <- state[[1]]; pos <- state[[2]] -1
-  # ends: runs off molecule (left), runs into nick (copy mode off), runs into break
-  if (pos < 1 || (subs[2, pos] == " " &&
-                  (state[[3]] == 0 || subs[1, pos] == " "))) pos <- 0 else
-  # copies: *any* strand is void (copy mode on)
-    if (state[[3]] == 1 && any(subs[, pos] == c(" ", " "))) {
-      wh <- which(subs[, pos] == " ")
-      subs[wh, pos] <- compl(subs[3 - wh, pos])}
-  state[[1]] <- subs; state[[2]] <- pos; return(state)}
+  # ends: if runs off molecule
+  if (subs[2, pos] == " ") pos <- 0 else
+    # copies: if there is no complementary base (copy mode on)
+    if (subs[1, pos] == " " && state[[3]] == 1)
+      subs[1, pos] <- compl(subs[2, pos])
+  state[[1]] <- subs; state[[2]] <- pos
+  return(state)}
 
 fcop <- function (state) {
-  pos <- state[[2]]
-  state[[1]][1, pos] <- compl(state[[1]][2, pos])
-  state[[3]] <- 1; return(state)}
+  # turns on copy mode, and copies at position
+  subs <- state[[1]]; pos <- state[[2]]
+  if (subs[1, pos] == " ")
+    state[[1]][1, pos] <- compl(subs[2, pos])
+  state[[3]] <- 1
+  return(state)}
 
 foff <- function (state) {
-  state[[3]] <- 0; return(state)}
+  # turns off copy mode
+  state[[3]] <- 0
+  return(state)}
 
+# insert pertains to both strands if copy mode is on
 fina <- function (state) {
   subs <- state[[1]]; pos <- state[[2]]
-  if (state[[3]] == 1)
-    add <- c("T", "A") else
-      add <- c(" ", "A")
+  if (state[[3]] == 1) add <- c("T", "A") else add <- c(" ", "A")
   state[[1]] <- matrix(c(subs[seq_len(pos*2)], add, subs[-(seq_len(pos*2))]), 2)
-  state[[2]] <- pos +1; return(state)}
+  state[[2]] <- pos +1
+  return(state)}
 
 finc <- function (state) {
   subs <- state[[1]]; pos <- state[[2]]
-  if (state[[3]] == 1)
-    add <- c("G", "C") else
-      add <- c(" ", "C")
+  if (state[[3]] == 1) add <- c("G", "C") else add <- c(" ", "C")
   state[[1]] <- matrix(c(subs[seq_len(pos*2)], add, subs[-(seq_len(pos*2))]), 2)
-  state[[2]] <- pos +1; return(state)}
+  state[[2]] <- pos +1
+  return(state)}
 
 fing <- function (state) {
   subs <- state[[1]]; pos <- state[[2]]
-  if (state[[3]] == 1)
-    add <- c("C", "G") else
-      add <- c(" ", "G")
+  if (state[[3]] == 1) add <- c("C", "G") else add <- c(" ", "G")
   state[[1]] <- matrix(c(subs[seq_len(pos*2)], add, subs[-(seq_len(pos*2))]), 2)
-  state[[2]] <- pos +1; return(state)}
+  state[[2]] <- pos +1
+  return(state)}
 
 fint <- function (state) {
   subs <- state[[1]]; pos <- state[[2]]
-  if (state[[3]] == 1)
-    add <- c("A", "T") else
-      add <- c(" ", "T")
+  if (state[[3]] == 1) add <- c("A", "T") else add <- c(" ", "T")
   state[[1]] <- matrix(c(subs[seq_len(pos*2)], add, subs[-(seq_len(pos*2))]), 2)
-  state[[2]] <- pos +1; return(state)}
+  state[[2]] <- pos +1
+  return(state)}
 
+# search along the strand
 frpy <- function (state) {
   subs <- state[[1]]; pos <- state[[2]] +1
-  found <- FALSE
-  while (!found && pos != 0) {
-    # ends: runs off molecule (right), runs into nick (copy mode off), runs into break
-    if (pos > ncol(subs) || (subs[2, pos] == " " && (state[[3]] == 0 || subs[1, pos] == " "))) pos <- 0 else {
-      # copies: *any* strand is void (copy mode on)
-      if (state[[3]] == 1 && any(subs[, pos] == c(" ", " "))) {
-        wh <- which(subs[, pos] == " ")
-        subs[wh, pos] <- compl(subs[3 - wh, pos])}
-      # moves: target not found
-      if (subs[2, pos] %in% c("C", "T")) found <- TRUE else pos <- pos +1}
-  }
-  state[[1]] <- subs; state[[2]] <- pos; return(state)}
+  while (pos != 0) {
+    # ends: if runs off molecule
+    if (subs[2, pos] == " ") pos <- 0 else {
+      # copies: if there is no complementary base (copy mode on)
+      if (subs[1, pos] == " " && state[[3]] == 1)
+        subs[1, pos] <- compl(subs[2, pos])
+      # moves: if target is not found
+      if (subs[2, pos] %in% c("C", "T")) break() else
+        pos <- pos +1}}
+  state[[1]] <- subs; state[[2]] <- pos
+  return(state)}
 
 frpu <- function (state) {
   subs <- state[[1]]; pos <- state[[2]] +1
-  found <- FALSE
-  while (!found && pos != 0) {
-    # ends: runs off molecule (right), runs into nick (copy mode off), runs into break
-    if (pos > ncol(subs) || (subs[2, pos] == " " && (state[[3]] == 0 || subs[1, pos] == " "))) pos <- 0 else {
-      # copies: *any* strand is void (copy mode on)
-      if (state[[3]] == 1 && any(subs[, pos] == c(" ", " "))) {
-        wh <- which(subs[, pos] == " ")
-        subs[wh, pos] <- compl(subs[3 - wh, pos])}
-      # moves: target not found
-      if (subs[2, pos] %in% c("A", "G")) found <- TRUE else pos <- pos +1}
-  }
-  state[[1]] <- subs; state[[2]] <- pos; return(state)}
+  while (pos != 0) {
+    # ends: if runs off molecule
+    if (subs[2, pos] == " ") pos <- 0 else {
+      # copies: if there is no complementary base (copy mode on)
+      if (subs[1, pos] == " " && state[[3]] == 1)
+        subs[1, pos] <- compl(subs[2, pos])
+      # moves: if target is not found
+      if (subs[2, pos] %in% c("A", "G")) break() else
+        pos <- pos +1}}
+  state[[1]] <- subs; state[[2]] <- pos
+  return(state)}
 
 flpy <- function (state) {
   subs <- state[[1]]; pos <- state[[2]] -1
-  found <- FALSE
-  while (!found && pos != 0) {
-    # ends: runs off molecule (left), runs into nick (copy mode off), runs into break
-    if (subs[2, pos] == " " && (state[[3]] == 0 || subs[1, pos] == " ")) pos <- 0 else {
-      # copies: *any* strand is void (copy mode on)
-      if (state[[3]] == 1 && any(subs[, pos] == c(" ", " "))) {
-        wh <- which(subs[, pos] == " ")
-        subs[wh, pos] <- compl(subs[3 - wh, pos])}
-      # moves: target not found
-      if (subs[2, pos] %in% c("C", "T")) found <- TRUE else pos <- pos -1}
-  }
-  state[[1]] <- subs; state[[2]] <- pos; return(state)}
+  while (pos != 0) {
+    # ends: if runs off molecule
+    if (subs[2, pos] == " ") pos <- 0 else {
+      # copies: if there is no complementary base (copy mode on)
+      if (subs[1, pos] == " " && state[[3]] == 1)
+        subs[1, pos] <- compl(subs[2, pos])
+      # moves: if target is not found
+      if (subs[2, pos] %in% c("C", "T")) break() else
+        pos <- pos +1}}
+  state[[1]] <- subs; state[[2]] <- pos
+  return(state)}
 
 flpu <- function (state) {
   subs <- state[[1]]; pos <- state[[2]] -1
-  found <- FALSE
-  while (!found && pos != 0) {
-    # ends: runs off molecule (left), runs into nick (copy mode off), runs into break
-    if (subs[2, pos] == " " && (state[[3]] == 0 || subs[1, pos] == " ")) pos <- 0 else {
-      # copies: *any* strand is void (copy mode on)
-      if (state[[3]] == 1 && any(subs[, pos] == c(" ", " "))) {
-        wh <- which(subs[, pos] == " ")
-        subs[wh, pos] <- compl(subs[3 - wh, pos])}
-      # moves: target not found
-      if (subs[2, pos] %in% c("A", "G")) found <- TRUE else pos <- pos -1}
-  }
-  state[[1]] <- subs; state[[2]] <- pos; return(state)}
+  while (pos != 0) {
+    # ends: if runs off molecule
+    if (subs[2, pos] == " ") pos <- 0 else {
+      # copies: if there is no complementary base (copy mode on)
+      if (subs[1, pos] == " " && state[[3]] == 1)
+        subs[1, pos] <- compl(subs[2, pos])
+      # moves: if target is not found
+      if (subs[2, pos] %in% c("A", "G")) break() else
+        pos <- pos +1}}
+  state[[1]] <- subs; state[[2]] <- pos
+  return(state)}
 
+# find complementer bases
 compl <- function (nt) {
-  if (nt == "A") cnt <- "T"
-  if (nt == "C") cnt <- "G"
-  if (nt == "G") cnt <- "C"
-  if (nt == "T") cnt <- "A"
-  return(cnt)
-}
+  b <- factor(nt, c("A", "C", "G", "T"))
+  levels(b) <- c("T", "G", "C", "A")
+  return(as.character(b))}
 
+# find complementer strand
 complst <- function (strand) {
-  paste0(sapply(unlist(strsplit(strand, "")), compl), collapse="")
-}
+  b <- compl(unlist(strsplit(strand, "")))
+  return(paste0(b, collapse=""))}
 
+# separate enzymes (change format: enzymes -> enzlist)
 separenz <- function (enzymes) {
   n <- enzymes[[1]]
   enzlist <- vector("list", n)
   for (i in seq_len(n))
     enzlist[[i]] <- list(enzymes[[2]][[i]], enzymes[[3]][i])
-  return(enzlist)
-}
+  return(enzlist)}
 
 # number of possible starting positions for enzyme along strand
 numstart <- function (strand, enzyme) {
-  return(sum(unlist(strsplit(strand, "")) == enzyme[[2]]))
-}
+  return(sum(unlist(strsplit(strand, "")) == enzyme[[2]]))}
 
+# brief output of strands
 printst <- function (state, comm=NULL) {
   if (!is.null(comm))
     cat(paste0(c(comm, ":\n"), collapse=""))
@@ -247,8 +244,7 @@ printst <- function (state, comm=NULL) {
   symb <- ifelse(state[[3]] == 1, "|", "-")
   if (state[[2]] != 0)
     cat(paste0(c(rep(" ", state[[2]] -1), symb), collapse=""), "\n") else
-      cat("*\n")
-}
+      cat("*\n")}
 
 # transform code_sec.txt and code_thr.txt into code.txt
 codetrans <- function (f="code.txt", f2="code_sec.txt", f3="code_thr.txt") {
@@ -261,5 +257,4 @@ codetrans <- function (f="code.txt", f2="code_sec.txt", f3="code_thr.txt") {
       paste0(as.character(c(ord[i, 1], ord[1, j], " ", ord[i, j],
                             " ", knk[i, j])), collapse=""))))
   
-  write(c(nuc, cod), file=f)
-}
+  write(c(nuc, cod), file=f)}
